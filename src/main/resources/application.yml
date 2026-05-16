@@ -1,0 +1,78 @@
+spring:
+  application:
+    name: lost-hub
+  config:
+    import: optional:application-secret.yml
+  jackson:
+    deserialization:
+      fail-on-unknown-properties: true
+  datasource:
+   # url: jdbc:mysql://localhost:3306/lost_hub?serverTimezone=GMT%2B8&useUnicode=true&characterEncoding=utf-8&zeroDateTimeBehavior=convertToNull&useSSL=false&allowPublicKeyRetrieval=true
+   # username: ${lost-hub.db.mysql.username}
+   # password: ${lost-hub.db.mysql.password}
+   # driver-class-name: com.mysql.cj.jdbc.Driver
+    url: jdbc:postgresql://192.168.150.129:5432/lost_hub?currentSchema=public
+    username: ${lost-hub.db.postgresql.username}
+    password: ${lost-hub.db.postgresql.password}
+  data:
+    redis:
+      host: 192.168.150.129
+      port: 6379
+      # database: ${REDIS_DATABASE:0}
+      password: ${lost-hub.redis.password:}
+      timeout: 5s
+
+jwt:
+  user-secret: ${lost-hub.jwt.user-secret}
+  admin-secret: ${lost-hub.jwt.admin-secret}
+  expire-hours: ${lost-hub.jwt.expire-hours}
+
+server:
+  port: 8080
+
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /api/doc.html
+    tags-sorter: alpha
+    operations-sorter: alpha
+    try-it-out-enabled: true
+
+logging:
+  level:
+    com.zaxxer.hikari: DEBUG
+    org.springframework.jdbc: DEBUG
+    dev.langchain4j: debug #日志级别
+
+mybatis-plus:
+  configuration:
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+    map-underscore-to-camel-case: true
+  global-config:
+    db-config:
+      id-type: auto
+  mapper-locations: classpath:/mapper/**/*.xml
+  type-aliases-package: com.hub.campuslosthub.domain.po
+
+
+langchain4j:
+  open-ai:
+    chat-model:
+      base-url: https://dashscope.aliyuncs.com/compatible-mode/v1
+      api-key: ${lost-hub.ai.api-key}
+      model-name: qwen-plus
+      log-requests: true #请求消息日志
+      log-responses: true #响应消息日志
+    streaming-chat-model: #流式模型配置
+      base-url: https://dashscope.aliyuncs.com/compatible-mode/v1
+      api-key: ${lost-hub.ai.api-key}
+      model-name: qwen-plus
+      log-requests: true
+      log-responses: true
+    embedding-model:
+      base-url: https://dashscope.aliyuncs.com/compatible-mode/v1
+      api-key: ${lost-hub.ai.api-key}
+      model-name: text-embedding-v4
+      log-requests: true
+      log-responses: true
