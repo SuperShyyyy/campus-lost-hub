@@ -10,7 +10,7 @@ public interface ItemService {
     Long create(long userId, ItemCreateRequest req);
 
     /**
-     * 更新当前用户已发布物品的标题、类型、描述与地点，并同步向量检索用 embedding。
+     * 更新当前用户已发布物品的标题、类型、描述与地点，并同步向量检索用 text_embedding。
      */
     void update(long userId, long itemId, ItemCreateRequest req);
 

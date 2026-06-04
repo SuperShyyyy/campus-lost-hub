@@ -26,7 +26,9 @@ public class Item {
 
     private Integer status;
 
-    private String embedding;
+    private String textEmbedding;
+
+    private String imageEmbedding;
 
     private String imageUrl;
 

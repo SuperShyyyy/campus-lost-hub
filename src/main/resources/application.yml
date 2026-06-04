@@ -19,7 +19,7 @@ spring:
       host: 192.168.150.129
       port: 6379
       # database: ${REDIS_DATABASE:0}
-      password: ${lost-hub.redis.password:}
+      password: ${lost-hub.redis.password}
       timeout: 5s
 
 jwt:
@@ -29,6 +29,12 @@ jwt:
 
 server:
   port: 8080
+
+lost-hub:
+  clip:
+    enabled: true
+    base-url: http://localhost:8000
+    dimension: 512
 
 springdoc:
   api-docs:
@@ -74,5 +80,6 @@ langchain4j:
       base-url: https://dashscope.aliyuncs.com/compatible-mode/v1
       api-key: ${lost-hub.ai.api-key}
       model-name: text-embedding-v4
+      dimensions: 1024
       log-requests: true
       log-responses: true

@@ -107,6 +107,9 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         if ("POST".equalsIgnoreCase(method) && "/api/item/search".equals(path)) {
             return true;
         }
+        if ("POST".equalsIgnoreCase(method) && "/api/item/search/image".equals(path)) {
+            return true;
+        }
         if ("POST".equalsIgnoreCase(method) && PUBLIC_EXACT.contains(path)) {
             return true;
         }

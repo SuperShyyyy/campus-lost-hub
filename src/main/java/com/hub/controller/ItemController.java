@@ -6,6 +6,7 @@ import com.hub.domain.dto.request.ItemCreateRequest;
 import com.hub.domain.dto.request.ItemSearchRequest;
 import com.hub.security.AuthContext;
 import com.hub.config.OpenApiConfig;
+import com.hub.service.ImageSearchService;
 import com.hub.service.ItemService;
 import com.hub.service.LostItemSearchService;
 import com.hub.domain.vo.ItemSearchVo;
@@ -16,6 +17,8 @@ import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.security.SecurityRequirements;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.DecimalMax;
+import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import lombok.RequiredArgsConstructor;
@@ -41,6 +44,7 @@ public class ItemController {
 
     private final ItemService itemService;
     private final LostItemSearchService lostItemSearchService;
+    private final ImageSearchService imageSearchService;
 
     @PostMapping
     @Operation(summary = "发布物品")
@@ -101,10 +105,21 @@ public class ItemController {
     }
 
     @PostMapping("/search")
-    @Operation(summary = "物品向量搜索", description = "无需登录，最多返回前2页共20条结果")
+    @Operation(summary = "物品文本向量搜索", description = "无需登录，基于 text_embedding 余弦相似度，最多返回前2页共20条结果")
     @SecurityRequirements
     public Result<PageResult<ItemSearchVo>> search(@Valid @RequestBody ItemSearchRequest request) {
         return Result.success(lostItemSearchService.search(request));
+    }
+
+    @PostMapping("/search/image")
+    @Operation(summary = "物品图片向量搜索", description = "上传图片，按 image_embedding(512维/CLIP) 余弦相似度分页；需启用 lost-hub.clip.enabled")
+    @SecurityRequirements
+    public Result<PageResult<ItemSearchVo>> searchByImage(
+            @RequestParam("file") MultipartFile file,
+            @Parameter(description = "页码，最多支持前2页") @RequestParam(defaultValue = "1") @Min(1) @Max(2) int page,
+            @Parameter(description = "每页条数，最大10") @RequestParam(defaultValue = "10") @Min(1) @Max(10) int size,
+            @Parameter(description = "最小匹配度阈值，范围0.5-0.8") @RequestParam(required = false) @DecimalMin("0.5") @DecimalMax("0.8") Double minScore) {
+        return Result.success(imageSearchService.search(file, page, size, minScore));
     }
 
     @GetMapping("/{id:\\d+}")

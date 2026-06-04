@@ -26,20 +26,14 @@ public class EmbeddingServiceImpl implements EmbeddingService {
     }
 
     @Override
-    public float[] embedItem(Integer type, String title, String description, String location) {
-        String typeLabel = Integer.valueOf(1).equals(type) ? "招领信息" : "失物信息";
-        String locationLabel = StringUtils.hasText(location) ? location.trim() : "未填写地点";
+    public float[] embedItemText(String title, String description) {
         String content = """
                 场景：校园失物招领物品建档
-                信息类型：%s
                 标题：%s
                 描述：%s
-                地点：%s
                 """.formatted(
-                typeLabel,
                 safeText(title),
-                safeText(description),
-                locationLabel
+                safeText(description)
         );
         return embed(content);
     }

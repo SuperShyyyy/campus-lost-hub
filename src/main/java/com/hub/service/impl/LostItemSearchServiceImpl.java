@@ -36,7 +36,7 @@ public class LostItemSearchServiceImpl implements LostItemSearchService {
         }
 
         float[] vector = embeddingService.embedQuery(request.getQuery());
-        long total = Math.min(repository.count(vector, minScore), MAX_TOTAL);
+        long total = Math.min(repository.countByText(vector, minScore), MAX_TOTAL);
         if (total == 0) {
             return new PageResult<>(List.of(), 0, page, size);
         }
@@ -46,7 +46,7 @@ public class LostItemSearchServiceImpl implements LostItemSearchService {
             return new PageResult<>(List.of(), total, page, size);
         }
 
-        List<ItemSearchVo> records = repository.search(vector, minScore, limit, offset)
+        List<ItemSearchVo> records = repository.searchByText(vector, minScore, limit, offset)
                 .stream()
                 .map(this::toSearchVo)
                 .toList();

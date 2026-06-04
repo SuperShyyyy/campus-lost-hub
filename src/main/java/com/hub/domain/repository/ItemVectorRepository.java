@@ -13,19 +13,46 @@ import java.util.Locale;
 @Repository
 public class ItemVectorRepository {
 
+    private static final String TEXT_COLUMN = "text_embedding";
+    private static final String IMAGE_COLUMN = "image_embedding";
+
     @Autowired
     private JdbcTemplate jdbcTemplate;
 
-    public void updateItemEmbedding(long itemId, float[] vector) {
+    public void updateTextEmbedding(long itemId, float[] vector) {
+        updateEmbedding(itemId, vector, TEXT_COLUMN);
+    }
+
+    public void updateImageEmbedding(long itemId, float[] vector) {
+        updateEmbedding(itemId, vector, IMAGE_COLUMN);
+    }
+
+    public List<ItemSearchHit> searchByText(float[] vector, double minScore, int limit, int offset) {
+        return search(vector, minScore, limit, offset, TEXT_COLUMN);
+    }
+
+    public List<ItemSearchHit> searchByImage(float[] vector, double minScore, int limit, int offset) {
+        return search(vector, minScore, limit, offset, IMAGE_COLUMN);
+    }
+
+    public long countByText(float[] vector, double minScore) {
+        return count(vector, minScore, TEXT_COLUMN);
+    }
+
+    public long countByImage(float[] vector, double minScore) {
+        return count(vector, minScore, IMAGE_COLUMN);
+    }
+
+    private void updateEmbedding(long itemId, float[] vector, String column) {
         String sql = """
             UPDATE item
-            SET embedding = CAST(? AS vector)
+            SET %s = CAST(? AS vector)
             WHERE id = ?
-        """;
+            """.formatted(column);
         jdbcTemplate.update(sql, formatVector(vector), itemId);
     }
 
-    public List<ItemSearchHit> search(float[] vector, double minScore, int limit, int offset) {
+    private List<ItemSearchHit> search(float[] vector, double minScore, int limit, int offset, String column) {
         String sql = """
             SELECT id,
                    user_id,
@@ -37,15 +64,15 @@ public class ItemVectorRepository {
                    status,
                    created_at,
                    updated_at,
-                   embedding <=> CAST(? AS vector) AS distance,
-                   1 - (embedding <=> CAST(? AS vector)) AS score
+                   %s <=> CAST(? AS vector) AS distance,
+                   1 - (%s <=> CAST(? AS vector)) AS score
             FROM item
-            WHERE embedding IS NOT NULL
-              AND 1 - (embedding <=> CAST(? AS vector)) >= ?
+            WHERE %s IS NOT NULL
+              AND 1 - (%s <=> CAST(? AS vector)) >= ?
             ORDER BY distance ASC, id DESC
             LIMIT ?
             OFFSET ?
-        """;
+            """.formatted(column, column, column, column);
 
         return jdbcTemplate.query(sql,
                 ps -> {
@@ -64,13 +91,13 @@ public class ItemVectorRepository {
                 ));
     }
 
-    public long count(float[] vector, double minScore) {
+    private long count(float[] vector, double minScore, String column) {
         String sql = """
             SELECT COUNT(*)
             FROM item
-            WHERE embedding IS NOT NULL
-              AND 1 - (embedding <=> CAST(? AS vector)) >= ?
-        """;
+            WHERE %s IS NOT NULL
+              AND 1 - (%s <=> CAST(? AS vector)) >= ?
+            """.formatted(column, column);
         Long count = jdbcTemplate.queryForObject(sql, Long.class, formatVector(vector), minScore);
         return count == null ? 0L : count;
     }

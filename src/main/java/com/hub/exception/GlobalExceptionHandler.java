@@ -42,6 +42,8 @@ public class GlobalExceptionHandler {
             case 401 -> HttpStatus.UNAUTHORIZED;
             case 403 -> HttpStatus.FORBIDDEN;
             case 404 -> HttpStatus.NOT_FOUND;
+            case 501 -> HttpStatus.NOT_IMPLEMENTED;
+            case 503 -> HttpStatus.SERVICE_UNAVAILABLE;
             default -> HttpStatus.BAD_REQUEST;
         };
         return ResponseEntity.status(status).body(new Result<>(status.value(), e.getMessage(), null));

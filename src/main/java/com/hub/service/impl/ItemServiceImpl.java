@@ -10,6 +10,7 @@ import com.hub.common.constant.CacheTtlConstants;
 import com.hub.common.constant.ItemStatusConstants;
 import com.hub.common.constant.RedisKeyConstants;
 import com.hub.config.AliyunConfig;
+import com.hub.config.ClipProperties;
 import com.hub.domain.dto.request.ItemCreateRequest;
 import com.hub.domain.po.Item;
 import com.hub.domain.repository.ItemVectorRepository;
@@ -19,6 +20,7 @@ import com.hub.exception.ForbiddenException;
 import com.hub.exception.NotFoundException;
 import com.hub.mapper.ItemMapper;
 import com.hub.service.EmbeddingService;
+import com.hub.service.ImageEmbeddingService;
 import com.hub.service.ItemService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -34,8 +36,10 @@ public class ItemServiceImpl implements ItemService {
     private final ItemMapper itemMapper;
     private final JsonRedisCacheService cache;
     private final EmbeddingService embeddingService;
+    private final ImageEmbeddingService imageEmbeddingService;
     private final ItemVectorRepository itemVectorRepository;
     private final AliyunConfig aliyunConfig;
+    private final ClipProperties clipProperties;
 
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -43,7 +47,7 @@ public class ItemServiceImpl implements ItemService {
         String title = req.getTitle().trim();
         String description = req.getDescription().trim();
         String location = req.getLocation() == null ? null : req.getLocation().trim();
-        float[] embedding = embeddingService.embedItem(req.getType(), title, description, location);
+        float[] textEmbedding = embeddingService.embedItemText(title, description);
 
         Item item = new Item();
         item.setUserId(userId);
@@ -52,9 +56,8 @@ public class ItemServiceImpl implements ItemService {
         item.setDescription(description);
         item.setLocation(location);
         item.setStatus(ItemStatusConstants.UNMATCHED);
-        item.setEmbedding(null);
         itemMapper.insert(item);
-        itemVectorRepository.updateItemEmbedding(item.getId(), embedding);
+        itemVectorRepository.updateTextEmbedding(item.getId(), textEmbedding);
         cache.deleteByPattern(RedisKeyConstants.itemListPattern());
         return item.getId();
     }
@@ -72,7 +75,7 @@ public class ItemServiceImpl implements ItemService {
         String title = req.getTitle().trim();
         String description = req.getDescription().trim();
         String location = req.getLocation() == null ? null : req.getLocation().trim();
-        float[] embedding = embeddingService.embedItem(req.getType(), title, description, location);
+        float[] textEmbedding = embeddingService.embedItemText(title, description);
 
         Item update = new Item();
         update.setId(itemId);
@@ -81,7 +84,7 @@ public class ItemServiceImpl implements ItemService {
         update.setDescription(description);
         update.setLocation(location);
         itemMapper.updateById(update);
-        itemVectorRepository.updateItemEmbedding(itemId, embedding);
+        itemVectorRepository.updateTextEmbedding(itemId, textEmbedding);
         cache.delete(RedisKeyConstants.itemDetail(itemId));
         cache.deleteByPattern(RedisKeyConstants.itemListPattern());
     }
@@ -103,6 +106,9 @@ public class ItemServiceImpl implements ItemService {
         if (contentType == null || !contentType.toLowerCase().startsWith("image/")) {
             throw new IllegalArgumentException("仅支持上传图片文件");
         }
+        if (!clipProperties.isEnabled()) {
+            throw new BizException(503, "图片向量服务未启用，请配置 lost-hub.clip.enabled=true 并启动 CLIP 服务");
+        }
 
         String imageUrl;
         try {
@@ -115,6 +121,17 @@ public class ItemServiceImpl implements ItemService {
         update.setId(itemId);
         update.setImageUrl(imageUrl);
         itemMapper.updateById(update);
+        try {
+            float[] imageEmbedding = imageEmbeddingService.embedImageUrl(imageUrl);
+            itemVectorRepository.updateImageEmbedding(itemId, imageEmbedding);
+        } catch (RuntimeException e) {
+            try {
+                aliyunConfig.deleteByFileUrl(imageUrl);
+            } catch (Exception deleteEx) {
+                throw new IllegalStateException("生成图片向量失败，且清理 OSS 文件失败: " + imageUrl, deleteEx);
+            }
+            throw new IllegalStateException("生成图片向量失败: " + e.getMessage(), e);
+        }
         cache.delete(RedisKeyConstants.itemDetail(itemId));
         cache.deleteByPattern(RedisKeyConstants.itemListPattern());
         return imageUrl;
