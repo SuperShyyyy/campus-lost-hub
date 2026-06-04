@@ -25,7 +25,7 @@
 
 - 用户与权限：注册登录、JWT 鉴权、角色区分（用户/管理员）
 - 物品管理：发布、更新、删除、完结、列表、详情、图片上传
-- 向量搜索：自然语言文本检索（`text_embedding` 1024 维 / Qwen）；图片检索（`image_embedding` 512 维 / CLIP，见 `PYTHON_CLIP_SERVICE.md`）
+- 向量搜索：自然语言文本检索（`text_embedding` 1024 维 / Qwen）；图片检索（`image_embedding` 512 维 /Python-CLIP）
 - 认领流程：发起认领（仅未匹配物品）、管理员审核（通过后置为已匹配）
 - 站内消息：会话列表、历史消息、已读状态、实时推送
 - AI 对话：SSE 流式问答接口（`/ask/chat`）
@@ -76,7 +76,7 @@ lost-hub:
 ### 3. 启动顺序建议
 
 1. PostgreSQL + Redis
-2. Python CLIP：`uvicorn main:app --host 0.0.0.0 --port 8000`（见 `PYTHON_CLIP_SERVICE.md`）
+2. Python CLIP：`uvicorn main:app --host 0.0.0.0 --port 8000`
 3. Java：`mvn spring-boot:run`
 
 ### 4. 启动项目
@@ -99,9 +99,6 @@ mvn spring-boot:run
 - `src/main/java/com/hub/service`：业务层
 - `src/main/java/com/hub/mapper`：数据访问层
 - `src/main/resources/application.yml`：主配置
-- `API.md`：接口清单与请求示例
-- [`PYTHON_CLIP_SERVICE.md`](PYTHON_CLIP_SERVICE.md)：Python CLIP 图片向量服务完整代码与联调说明
-- [`CONCURRENCY.md`](CONCURRENCY.md)：并发、限流、验证码与 CLIP 保护方案（演进指南）
 
 ## 说明
 
