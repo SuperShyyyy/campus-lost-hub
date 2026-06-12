@@ -46,7 +46,7 @@ public class ItemChatController {
         return Result.success(itemChatService.sessions(AuthContext.requireUserId(), page, size));
     }
 
-    @GetMapping("/sessions/{sessionId}/messages")
+    @GetMapping("/sessions/{sessionId:\\d+}/messages")
     @Operation(summary = "会话消息历史（分页）")
     public Result<PageResult<ChatMessageVo>> messages(
             @Parameter(description = "会话 ID") @PathVariable("sessionId") long sessionId,
@@ -63,7 +63,7 @@ public class ItemChatController {
         return Result.success(message);
     }
 
-    @PutMapping("/sessions/{sessionId}/read")
+    @PutMapping("/sessions/{sessionId:\\d+}/read")
     @Operation(summary = "标记会话已读")
     public Result<Void> markRead(@Parameter(description = "会话 ID") @PathVariable("sessionId") long sessionId) {
         itemChatService.markRead(AuthContext.requireUserId(), sessionId);

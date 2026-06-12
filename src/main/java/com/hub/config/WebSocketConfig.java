@@ -2,6 +2,7 @@ package com.hub.config;
 
 import com.hub.security.StompAuthChannelInterceptor;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.lang.NonNull;
 import org.springframework.messaging.simp.config.ChannelRegistration;
@@ -17,6 +18,9 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
 
     private final StompAuthChannelInterceptor stompAuthChannelInterceptor;
 
+    @Value("${lost-hub.websocket.allowed-origins:*}")
+    private String[] allowedOrigins;
+
     @Override
     public void configureMessageBroker(@NonNull MessageBrokerRegistry registry) {
         registry.enableSimpleBroker("/topic");
@@ -25,7 +29,8 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
 
     @Override
     public void registerStompEndpoints(@NonNull StompEndpointRegistry registry) {
-        registry.addEndpoint("/ws").setAllowedOriginPatterns("*");
+        registry.addEndpoint("/ws")
+                .setAllowedOriginPatterns(allowedOrigins);
     }
 
     @Override

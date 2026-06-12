@@ -2,6 +2,8 @@ package com.hub.security;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.hub.common.Result;
+import com.hub.exception.ForbiddenException;
+import com.hub.exception.RateLimitException;
 import com.hub.exception.UnauthorizedException;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -32,12 +34,18 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     );
 
     private final JwtTokenProvider jwtTokenProvider;
+    private final BanCheckService banCheckService;
+    private final RateLimitService rateLimitService;
     private final ObjectMapper objectMapper;
 
     public JwtAuthenticationFilter(
             JwtTokenProvider jwtTokenProvider,
+            BanCheckService banCheckService,
+            RateLimitService rateLimitService,
             @Qualifier("redisObjectMapper") ObjectMapper objectMapper) {
         this.jwtTokenProvider = jwtTokenProvider;
+        this.banCheckService = banCheckService;
+        this.rateLimitService = rateLimitService;
         this.objectMapper = objectMapper;
     }
 
@@ -67,10 +75,38 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 AuthContext.setAdminId(adminId);
             } else {
                 long userId = jwtTokenProvider.parseUserId(auth);
+                // JWT 解析成功后立即检查 Redis 封禁标记（DB 兜底）
+                banCheckService.checkNotBanned(userId);
+
+                // 搜索接口按 userId 限流
+                if ("POST".equalsIgnoreCase(method)) {
+                    if ("/api/item/search".equals(path)) {
+                        rateLimitService.checkTextSearchRateLimit(userId);
+                    } else if ("/api/item/search/image".equals(path)) {
+                        rateLimitService.checkImageSearchRateLimit(userId);
+                    } else if ("/api/item".equals(path)) {
+                        rateLimitService.checkItemCreateRateLimit(userId);
+                    } else if ("/api/claim".equals(path)) {
+                        rateLimitService.checkClaimCreateRateLimit(userId);
+                    }
+                }
+
                 AuthContext.setUserId(userId);
             }
 
             filterChain.doFilter(request, response);
+        } catch (RateLimitException e) {
+            response.setStatus(429);
+            response.setCharacterEncoding(StandardCharsets.UTF_8.name());
+            response.setContentType(MediaType.APPLICATION_JSON_VALUE);
+            Result<Object> body = new Result<>(429, e.getMessage(), null);
+            response.getWriter().write(objectMapper.writeValueAsString(body));
+        } catch (ForbiddenException e) {
+            response.setStatus(HttpStatus.FORBIDDEN.value());
+            response.setCharacterEncoding(StandardCharsets.UTF_8.name());
+            response.setContentType(MediaType.APPLICATION_JSON_VALUE);
+            Result<Object> body = new Result<>(HttpStatus.FORBIDDEN.value(), e.getMessage(), null);
+            response.getWriter().write(objectMapper.writeValueAsString(body));
         } catch (UnauthorizedException e) {
             response.setStatus(HttpStatus.UNAUTHORIZED.value());
             response.setCharacterEncoding(StandardCharsets.UTF_8.name());
@@ -103,12 +139,6 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             if (path.matches("^/api/item/\\d+$")) {
                 return true;
             }
-        }
-        if ("POST".equalsIgnoreCase(method) && "/api/item/search".equals(path)) {
-            return true;
-        }
-        if ("POST".equalsIgnoreCase(method) && "/api/item/search/image".equals(path)) {
-            return true;
         }
         if ("POST".equalsIgnoreCase(method) && PUBLIC_EXACT.contains(path)) {
             return true;

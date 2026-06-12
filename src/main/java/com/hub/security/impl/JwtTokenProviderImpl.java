@@ -16,6 +16,7 @@ import org.springframework.stereotype.Component;
 
 import javax.crypto.SecretKey;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.util.Date;
 
 @Component
@@ -62,6 +63,11 @@ public class JwtTokenProviderImpl implements JwtTokenProvider {
     @Override
     public long parseAdminId(String bearerToken) {
         return parseSubject(bearerToken, adminKey, JwtClaimConstants.TOKEN_TYPE_ADMIN);
+    }
+
+    @Override
+    public Duration getTokenExpireDuration() {
+        return Duration.ofHours(jwtProperties.getExpireHours());
     }
 
     private long parseSubject(String bearerToken, SecretKey key, String expectedTyp) {

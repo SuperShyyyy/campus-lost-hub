@@ -13,6 +13,7 @@ import org.springframework.util.StringUtils;
 import java.io.ByteArrayInputStream;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
+import java.util.Set;
 import java.util.UUID;
 
 @Component
@@ -33,6 +34,30 @@ public class AliyunConfig {
     @Value("${lost-hub.aliyun.bucket-name}")
     private String bucketName;
 
+    private volatile OSS ossClient;
+
+    /**
+     * 获取单例 OSS 客户端（懒初始化 + 双重检查锁），避免每次请求新建/销毁导致连接池耗尽。
+     */
+    private OSS getOssClient() {
+        if (ossClient == null) {
+            synchronized (this) {
+                if (ossClient == null) {
+                    validateConfig();
+                    ClientBuilderConfiguration cfg = new ClientBuilderConfiguration();
+                    cfg.setSignatureVersion(SignVersion.V4);
+                    ossClient = OSSClientBuilder.create()
+                            .endpoint(endPoint)
+                            .credentialsProvider(new DefaultCredentialProvider(accessKeyId, accessKeySecret))
+                            .clientConfiguration(cfg)
+                            .region(region)
+                            .build();
+                }
+            }
+        }
+        return ossClient;
+    }
+
     public String uploadItemImage(byte[] content, String originalFileName) {
         String dir = LocalDate.now().format(DateTimeFormatter.ofPattern("yyyy/MM"));
         return uploadImage(content, originalFileName, dir);
@@ -47,52 +72,23 @@ public class AliyunConfig {
     }
 
     public void deleteByFileUrl(String fileUrl) {
-        validateConfig();
         String objectName = extractObjectName(fileUrl);
         if (objectName == null) {
             return;
         }
-
-        ClientBuilderConfiguration clientBuilderConfiguration = new ClientBuilderConfiguration();
-        clientBuilderConfiguration.setSignatureVersion(SignVersion.V4);
-        OSS ossClient = OSSClientBuilder.create()
-                .endpoint(endPoint)
-                .credentialsProvider(new DefaultCredentialProvider(accessKeyId, accessKeySecret))
-                .clientConfiguration(clientBuilderConfiguration)
-                .region(region)
-                .build();
-
-        try {
-            ossClient.deleteObject(bucketName, objectName);
-        } finally {
-            ossClient.shutdown();
-        }
+        getOssClient().deleteObject(bucketName, objectName);
     }
 
     private String uploadImage(byte[] content, String originalFileName, String prefix) {
-        validateConfig();
         String dir = prefix + "/" + LocalDate.now().format(DateTimeFormatter.ofPattern("yyyy/MM"));
         String extension = getExtension(originalFileName);
         String newFileName = UUID.randomUUID() + extension;
         String objectName = dir + "/" + newFileName;
 
-        ClientBuilderConfiguration clientBuilderConfiguration = new ClientBuilderConfiguration();
-        clientBuilderConfiguration.setSignatureVersion(SignVersion.V4);
-        OSS ossClient = OSSClientBuilder.create()
-                .endpoint(endPoint)
-                .credentialsProvider(new DefaultCredentialProvider(accessKeyId, accessKeySecret))
-                .clientConfiguration(clientBuilderConfiguration)
-                .region(region)
-                .build();
-
-        try {
-            ObjectMetadata metadata = new ObjectMetadata();
-            metadata.setContentLength(content.length);
-            metadata.setContentType(resolveContentType(extension));
-            ossClient.putObject(bucketName, objectName, new ByteArrayInputStream(content), metadata);
-        } finally {
-            ossClient.shutdown();
-        }
+        ObjectMetadata metadata = new ObjectMetadata();
+        metadata.setContentLength(content.length);
+        metadata.setContentType(resolveContentType(extension));
+        getOssClient().putObject(bucketName, objectName, new ByteArrayInputStream(content), metadata);
 
         return buildFileUrl(objectName);
     }
@@ -107,11 +103,23 @@ public class AliyunConfig {
         }
     }
 
+    /**
+     * 允许上传的安全图片扩展名（白名单）。
+     * 不允许 .svg（可嵌入 JS 脚本）、.html 等可执行类型。
+     */
+    private static final Set<String> ALLOWED_EXTENSIONS = Set.of(
+            ".jpg", ".jpeg", ".png", ".gif", ".webp", ".bmp"
+    );
+
     private String getExtension(String originalFileName) {
         if (!StringUtils.hasText(originalFileName) || !originalFileName.contains(".")) {
             return ".bin";
         }
-        return originalFileName.substring(originalFileName.lastIndexOf(".")).toLowerCase();
+        String ext = originalFileName.substring(originalFileName.lastIndexOf(".")).toLowerCase();
+        if (!ALLOWED_EXTENSIONS.contains(ext)) {
+            return ".bin";
+        }
+        return ext;
     }
 
     private String resolveContentType(String extension) {
@@ -121,7 +129,6 @@ public class AliyunConfig {
             case ".gif" -> "image/gif";
             case ".webp" -> "image/webp";
             case ".bmp" -> "image/bmp";
-            case ".svg" -> "image/svg+xml";
             default -> "application/octet-stream";
         };
     }

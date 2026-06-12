@@ -22,6 +22,7 @@ public class ItemCreateRequest {
     private String title;
 
     @NotBlank(message = "描述不能为空")
+    @Size(max = 2000, message = "描述长度不能超过2000个字符")
     private String description;
 
     @Size(max = 100)

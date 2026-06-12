@@ -25,6 +25,7 @@ import com.hub.mapper.AdminMapper;
 import com.hub.mapper.ClaimRecordMapper;
 import com.hub.mapper.ItemMapper;
 import com.hub.mapper.UserMapper;
+import com.hub.security.BanCheckService;
 import com.hub.security.JwtTokenProvider;
 import com.hub.service.AdminService;
 import lombok.RequiredArgsConstructor;
@@ -32,6 +33,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Duration;
 import java.util.List;
 
 @Service
@@ -45,6 +47,7 @@ public class AdminServiceImpl implements AdminService {
     private final PasswordEncoder passwordEncoder;
     private final JwtTokenProvider jwtTokenProvider;
     private final JsonRedisCacheService cache;
+    private final BanCheckService banCheckService;
 
     @Override
     public TokenResponse login(AdminLoginRequest req) {
@@ -121,6 +124,8 @@ public class AdminServiceImpl implements AdminService {
         }
         user.setStatus(UserStatusConstants.BANNED);
         userMapper.updateById(user);
+        // 同步写 Redis ban 标记，使已签发的 token 立即失效
+        banCheckService.markBannedInRedis(userId);
         cache.delete(RedisKeyConstants.userMe(userId));
     }
 
@@ -161,7 +166,7 @@ public class AdminServiceImpl implements AdminService {
         cache.delete(RedisKeyConstants.claimMy(claim.getUserId()));
     }
 
-    private void putCache(String key, Object value, java.time.Duration ttl) {
+    private void putCache(String key, Object value, Duration ttl) {
         try {
             cache.put(key, value, ttl);
         } catch (JsonProcessingException e) {

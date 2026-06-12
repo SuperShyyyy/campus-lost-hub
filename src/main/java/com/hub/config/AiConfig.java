@@ -14,13 +14,6 @@ public class AiConfig {
     private ChatMemoryStore redisChatMemoryStore;
 
     @Bean
-    public ChatMemory chatMemory() {
-        return MessageWindowChatMemory.builder()
-                .maxMessages(20)//最大保存的会话记录数量
-                .build();
-    }
-
-    @Bean
     public ChatMemoryProvider chatMemoryProvider(){
         ChatMemoryProvider chatMemoryProvider = new ChatMemoryProvider() {
             @Override

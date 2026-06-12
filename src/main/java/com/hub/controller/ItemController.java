@@ -61,7 +61,7 @@ public class ItemController {
         return Result.success();
     }
 
-    @PostMapping("/{id}/image")
+    @PostMapping("/{id:\\d+}/image")
     @Operation(summary = "上传物品图片", description = "发布成功后上传单张图片，仅发布者可操作")
     public Result<String> uploadImage(
             @Parameter(description = "物品 ID") @PathVariable("id") long id,
@@ -69,7 +69,7 @@ public class ItemController {
         return Result.success(itemService.uploadImage(AuthContext.requireUserId(), id, file));
     }
 
-    @DeleteMapping("/{id}")
+    @DeleteMapping("/{id:\\d+}")
     @Operation(summary = "删除物品", description = "仅发布者可删除")
     public Result<Void> delete(@Parameter(description = "物品 ID") @PathVariable("id") long id) {
         itemService.delete(AuthContext.requireUserId(), id);
@@ -87,8 +87,8 @@ public class ItemController {
     @Operation(summary = "物品列表（分页）", description = "无需登录")
     @SecurityRequirements
     public Result<PageResult<ItemVo>> list(
-            @Parameter(description = "类型：0 丢失，1 拾到") @RequestParam(required = false) Integer type,
-            @Parameter(description = "状态筛选") @RequestParam(required = false) Integer status,
+            @Parameter(description = "类型：0 丢失，1 拾到") @RequestParam(required = false) @Min(0) @Max(1) Integer type,
+            @Parameter(description = "状态筛选：0未匹配 1已匹配 2已完结") @RequestParam(required = false) @Min(0) @Max(2) Integer status,
             @Parameter(description = "页码") @RequestParam(defaultValue = "1") @Min(1) int page,
             @Parameter(description = "每页条数") @RequestParam(defaultValue = "10") @Min(1) @Max(100) int size) {
         return Result.success(itemService.list(type, status, page, size));
@@ -97,23 +97,21 @@ public class ItemController {
     @GetMapping("/my")
     @Operation(summary = "我的发布（分页）")
     public Result<PageResult<ItemVo>> my(
-            @Parameter(description = "类型：0 丢失，1 拾到") @RequestParam(required = false) Integer type,
-            @Parameter(description = "状态筛选") @RequestParam(required = false) Integer status,
+            @Parameter(description = "类型：0 丢失，1 拾到") @RequestParam(required = false) @Min(0) @Max(1) Integer type,
+            @Parameter(description = "状态筛选：0未匹配 1已匹配 2已完结") @RequestParam(required = false) @Min(0) @Max(2) Integer status,
             @Parameter(description = "页码") @RequestParam(defaultValue = "1") @Min(1) int page,
             @Parameter(description = "每页条数") @RequestParam(defaultValue = "10") @Min(1) @Max(100) int size) {
         return Result.success(itemService.myItems(AuthContext.requireUserId(), type, status, page, size));
     }
 
     @PostMapping("/search")
-    @Operation(summary = "物品文本向量搜索", description = "无需登录，基于 text_embedding 余弦相似度，最多返回前2页共20条结果")
-    @SecurityRequirements
+    @Operation(summary = "物品文本向量搜索", description = "需登录，基于 text_embedding 余弦相似度，最多返回前2页共20条结果")
     public Result<PageResult<ItemSearchVo>> search(@Valid @RequestBody ItemSearchRequest request) {
         return Result.success(lostItemSearchService.search(request));
     }
 
     @PostMapping("/search/image")
-    @Operation(summary = "物品图片向量搜索", description = "上传图片，按 image_embedding(512维/CLIP) 余弦相似度分页；需启用 lost-hub.clip.enabled")
-    @SecurityRequirements
+    @Operation(summary = "物品图片向量搜索", description = "需登录；上传图片，按 image_embedding(512维/CLIP) 余弦相似度分页；需启用 lost-hub.clip.enabled")
     public Result<PageResult<ItemSearchVo>> searchByImage(
             @RequestParam("file") MultipartFile file,
             @Parameter(description = "页码，最多支持前2页") @RequestParam(defaultValue = "1") @Min(1) @Max(2) int page,

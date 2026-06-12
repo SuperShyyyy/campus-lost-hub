@@ -13,10 +13,11 @@ import com.hub.domain.vo.ChatMessageVo;
 import com.hub.domain.vo.ChatSessionVo;
 import com.hub.exception.ForbiddenException;
 import com.hub.exception.NotFoundException;
+import com.hub.exception.RateLimitException;
 import com.hub.mapper.ItemChatMessageMapper;
 import com.hub.mapper.ItemChatSessionMapper;
 import com.hub.mapper.ItemMapper;
-import com.hub.mapper.UserMapper;
+import com.hub.security.RateLimitService;
 import com.hub.security.SensitiveContentGuard;
 import com.hub.service.ItemChatService;
 import lombok.RequiredArgsConstructor;
@@ -32,39 +33,39 @@ import java.util.List;
 public class ItemChatServiceImpl implements ItemChatService {
 
     private final ItemMapper itemMapper;
-    private final UserMapper userMapper;
     private final ItemChatSessionMapper sessionMapper;
     private final ItemChatMessageMapper messageMapper;
     private final SensitiveContentGuard sensitiveContentGuard;
+    private final RateLimitService rateLimitService;
 
     @Override
     @Transactional(rollbackFor = Exception.class)
     public ChatMessageVo send(long senderUserId, ChatSendMessageRequest request) {
+        // 聊天消息发送限流（REST 和 WebSocket 共用此入口）
+        rateLimitService.checkChatSendRateLimit(senderUserId);
         Item item = itemMapper.selectById(request.getItemId());
         if (item == null) {
             throw new NotFoundException("物品不存在");
         }
 
         long ownerUserId = item.getUserId();
-        long receiverUserId = request.getReceiverUserId();
-        if (senderUserId == receiverUserId) {
-            throw new IllegalArgumentException("不能给自己发送消息");
-        }
 
-        if (userMapper.selectById(receiverUserId) == null) {
-            throw new NotFoundException("接收者不存在");
-        }
-
+        // 自动推导 receiverUserId：根据 itemId 关联的物品发布者确定
+        // - 非发布者发消息：接收者固定为物品发布者（ownerUserId）
+        // - 发布者发消息：从已有会话中取对方 userId（contactUserId）
+        long receiverUserId;
         long contactUserId;
         if (senderUserId == ownerUserId) {
-            contactUserId = receiverUserId;
-            if (contactUserId == ownerUserId) {
-                throw new IllegalArgumentException("发布者不能给自己发送消息");
+            // 发布者发消息：需找到已有的会话来获取对方
+            ItemChatSession existingSession = findSessionByItemIdAndOwner(request.getItemId(), ownerUserId);
+            if (existingSession == null) {
+                throw new IllegalArgumentException("发布者不能主动发起会话，需等待他人联系");
             }
+            contactUserId = existingSession.getContactUserId();
+            receiverUserId = contactUserId;
         } else {
-            if (receiverUserId != ownerUserId) {
-                throw new ForbiddenException("只能给该物品发布者发送消息");
-            }
+            // 非发布者发消息：接收者就是物品发布者
+            receiverUserId = ownerUserId;
             contactUserId = senderUserId;
         }
 
@@ -73,9 +74,6 @@ public class ItemChatServiceImpl implements ItemChatService {
 
         if (!isParticipant(senderUserId, session)) {
             throw new ForbiddenException("仅会话参与者可发送消息");
-        }
-        if (!isCounterparty(senderUserId, receiverUserId, session)) {
-            throw new ForbiddenException("接收方不在当前会话中");
         }
 
         LocalDateTime now = LocalDateTime.now();
@@ -195,14 +193,12 @@ public class ItemChatServiceImpl implements ItemChatService {
         return userId == session.getOwnerUserId() || userId == session.getContactUserId();
     }
 
-    private boolean isCounterparty(long senderUserId, long receiverUserId, ItemChatSession session) {
-        if (senderUserId == session.getOwnerUserId()) {
-            return receiverUserId == session.getContactUserId();
-        }
-        if (senderUserId == session.getContactUserId()) {
-            return receiverUserId == session.getOwnerUserId();
-        }
-        return false;
+    private ItemChatSession findSessionByItemIdAndOwner(long itemId, long ownerUserId) {
+        LambdaQueryWrapper<ItemChatSession> query = new LambdaQueryWrapper<ItemChatSession>()
+                .eq(ItemChatSession::getItemId, itemId)
+                .eq(ItemChatSession::getOwnerUserId, ownerUserId)
+                .last("limit 1");
+        return sessionMapper.selectOne(query);
     }
 
     private ChatMessageVo toMessageVo(ItemChatMessage msg) {

@@ -6,6 +6,7 @@ import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
 import lombok.Data;
 
 @Data
@@ -13,6 +14,7 @@ import lombok.Data;
 public class ItemSearchRequest {
 
     @NotBlank(message = "搜索内容不能为空")
+    @Size(max = 500, message = "搜索内容不能超过500个字符")
     @Schema(description = "搜索描述，支持自然语言输入", example = "昨天下午在图书馆三楼丢了一个黑色书包")
     private String query;
 

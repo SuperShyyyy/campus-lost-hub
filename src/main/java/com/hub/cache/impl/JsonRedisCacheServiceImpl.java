@@ -6,13 +6,17 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.hub.cache.CacheResult;
 import com.hub.cache.JsonRedisCacheService;
 import com.hub.common.constant.CacheNullConstants;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.data.redis.core.ScanOptions;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 
 import java.time.Duration;
+import java.util.HashSet;
 import java.util.Set;
 
+@Slf4j
 @Service
 public class JsonRedisCacheServiceImpl implements JsonRedisCacheService {
 
@@ -38,6 +42,7 @@ public class JsonRedisCacheServiceImpl implements JsonRedisCacheService {
         try {
             return CacheResult.hit(objectMapper.readValue(raw, clazz));
         } catch (JsonProcessingException e) {
+            log.warn("Redis 缓存反序列化失败，已删除 key={}, targetClass={}", key, clazz.getName(), e);
             stringRedisTemplate.delete(key);
             return CacheResult.miss();
         }
@@ -55,6 +60,7 @@ public class JsonRedisCacheServiceImpl implements JsonRedisCacheService {
         try {
             return CacheResult.hit(objectMapper.readValue(raw, typeReference));
         } catch (JsonProcessingException e) {
+            log.warn("Redis 缓存反序列化失败，已删除 key={}, targetType={}", key, typeReference.getType(), e);
             stringRedisTemplate.delete(key);
             return CacheResult.miss();
         }
@@ -82,8 +88,12 @@ public class JsonRedisCacheServiceImpl implements JsonRedisCacheService {
 
     @Override
     public void deleteByPattern(String pattern) {
-        Set<String> keys = stringRedisTemplate.keys(pattern);
-        if (keys != null && !keys.isEmpty()) {
+        Set<String> keys = new HashSet<>();
+        try (var cursor = stringRedisTemplate.scan(
+                ScanOptions.scanOptions().match(pattern).count(100).build())) {
+            cursor.forEachRemaining(key -> keys.add(key));
+        }
+        if (!keys.isEmpty()) {
             stringRedisTemplate.delete(keys);
         }
     }

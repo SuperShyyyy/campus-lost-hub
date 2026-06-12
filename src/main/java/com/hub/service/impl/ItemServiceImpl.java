@@ -23,12 +23,15 @@ import com.hub.service.EmbeddingService;
 import com.hub.service.ImageEmbeddingService;
 import com.hub.service.ItemService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
+import java.time.Duration;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class ItemServiceImpl implements ItemService {
@@ -106,32 +109,34 @@ public class ItemServiceImpl implements ItemService {
         if (contentType == null || !contentType.toLowerCase().startsWith("image/")) {
             throw new IllegalArgumentException("仅支持上传图片文件");
         }
+        long fileSize = file.getSize();
+        if (fileSize > 10 * 1024 * 1024) {
+            throw new IllegalArgumentException("图片过大（最大10MB），请压缩后重试");
+        }
         if (!clipProperties.isEnabled()) {
             throw new BizException(503, "图片向量服务未启用，请配置 lost-hub.clip.enabled=true 并启动 CLIP 服务");
         }
 
-        String imageUrl;
+        byte[] imageBytes;
         try {
-            imageUrl = aliyunConfig.uploadItemImage(file.getBytes(), file.getOriginalFilename());
+            imageBytes = file.getBytes();
         } catch (IOException e) {
             throw new IllegalStateException("读取上传图片失败", e);
         }
+
+        // 先生成向量再上传 OSS：避免向量生成失败时 OSS 已写入产生孤儿文件。
+        // 向量生成只需 URL，这里先将 bytes 作为临时文件上传→算向量→删除临时文件，
+        // 拿到向量后再做正式的 OSS 上传 + DB 写入。
+        float[] imageEmbedding = imageEmbeddingService.embedImage(imageBytes, contentType);
+
+        String imageUrl = aliyunConfig.uploadItemImage(imageBytes, file.getOriginalFilename());
 
         Item update = new Item();
         update.setId(itemId);
         update.setImageUrl(imageUrl);
         itemMapper.updateById(update);
-        try {
-            float[] imageEmbedding = imageEmbeddingService.embedImageUrl(imageUrl);
-            itemVectorRepository.updateImageEmbedding(itemId, imageEmbedding);
-        } catch (RuntimeException e) {
-            try {
-                aliyunConfig.deleteByFileUrl(imageUrl);
-            } catch (Exception deleteEx) {
-                throw new IllegalStateException("生成图片向量失败，且清理 OSS 文件失败: " + imageUrl, deleteEx);
-            }
-            throw new IllegalStateException("生成图片向量失败: " + e.getMessage(), e);
-        }
+        itemVectorRepository.updateImageEmbedding(itemId, imageEmbedding);
+
         cache.delete(RedisKeyConstants.itemDetail(itemId));
         cache.deleteByPattern(RedisKeyConstants.itemListPattern());
         return imageUrl;
@@ -256,7 +261,7 @@ public class ItemServiceImpl implements ItemService {
         return vo;
     }
 
-    private void putCache(String key, Object value, java.time.Duration ttl) {
+    private void putCache(String key, Object value, Duration ttl) {
         try {
             cache.put(key, value, ttl);
         } catch (JsonProcessingException e) {

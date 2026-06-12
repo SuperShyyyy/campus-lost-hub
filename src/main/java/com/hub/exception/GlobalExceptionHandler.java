@@ -7,6 +7,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.ResponseStatus;
@@ -42,11 +43,18 @@ public class GlobalExceptionHandler {
             case 401 -> HttpStatus.UNAUTHORIZED;
             case 403 -> HttpStatus.FORBIDDEN;
             case 404 -> HttpStatus.NOT_FOUND;
+            case 429 -> HttpStatus.TOO_MANY_REQUESTS;
             case 501 -> HttpStatus.NOT_IMPLEMENTED;
             case 503 -> HttpStatus.SERVICE_UNAVAILABLE;
             default -> HttpStatus.BAD_REQUEST;
         };
         return ResponseEntity.status(status).body(new Result<>(status.value(), e.getMessage(), null));
+    }
+
+    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    public Result<Object> handleMethodArgumentTypeMismatchException(MethodArgumentTypeMismatchException e) {
+        return new Result<>(HttpStatus.BAD_REQUEST.value(), "请求参数格式错误：" + e.getName(), null);
     }
 
     @ExceptionHandler(HttpMessageNotReadableException.class)

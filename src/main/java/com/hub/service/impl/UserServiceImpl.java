@@ -19,9 +19,12 @@ import com.hub.mapper.UserMapper;
 import com.hub.security.JwtTokenProvider;
 import com.hub.service.UserService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.time.Duration;
 
 @Service
 @RequiredArgsConstructor
@@ -31,6 +34,7 @@ public class UserServiceImpl implements UserService {
     private final PasswordEncoder passwordEncoder;
     private final JwtTokenProvider jwtTokenProvider;
     private final JsonRedisCacheService cache;
+    private final StringRedisTemplate stringRedisTemplate;
 
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -53,12 +57,26 @@ public class UserServiceImpl implements UserService {
             throw new BizException(400, "用户名或密码错误");
         }
         if (UserStatusConstants.BANNED == user.getStatus()) {
+            // 已封禁用户登录时补写 Redis 标记，防止旧 token 绕过
+            markBannedIfAbsent(user.getId());
             throw new ForbiddenException("账号已被封禁");
         }
         if (!passwordEncoder.matches(req.getPassword(), user.getPassword())) {
             throw new BizException(400, "用户名或密码错误");
         }
         return new TokenResponse(jwtTokenProvider.createUserToken(user.getId()));
+    }
+
+    /**
+     * 确保封禁用户对应的 Redis ban 标记存在（登录/更新时 DB 发现封禁则补写）。
+     */
+    private void markBannedIfAbsent(long userId) {
+        String banKey = RedisKeyConstants.banUser(userId);
+        Boolean exists = stringRedisTemplate.hasKey(banKey);
+        if (exists == null || !exists) {
+            Duration ttl = jwtTokenProvider.getTokenExpireDuration();
+            stringRedisTemplate.opsForValue().set(banKey, "1", ttl);
+        }
     }
 
     @Override
@@ -123,7 +141,7 @@ public class UserServiceImpl implements UserService {
         );
     }
 
-    private void putCache(String key, Object value, java.time.Duration ttl) {
+    private void putCache(String key, Object value, Duration ttl) {
         try {
             cache.put(key, value, ttl);
         } catch (JsonProcessingException e) {

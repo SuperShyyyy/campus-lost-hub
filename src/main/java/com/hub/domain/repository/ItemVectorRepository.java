@@ -7,6 +7,7 @@ import org.springframework.stereotype.Repository;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Timestamp;
 import java.util.List;
 import java.util.Locale;
 
@@ -92,11 +93,16 @@ public class ItemVectorRepository {
     }
 
     private long count(float[] vector, double minScore, String column) {
+        // 子查询 LIMIT 21：pgvector 只对前 21 个命中行计算余弦距离，
+        // 避免 COUNT(*) 对所有 image_embedding IS NOT NULL 的行计算距离。
         String sql = """
-            SELECT COUNT(*)
-            FROM item
-            WHERE %s IS NOT NULL
-              AND 1 - (%s <=> CAST(? AS vector)) >= ?
+            SELECT COUNT(*) FROM (
+                SELECT 1
+                FROM item
+                WHERE %s IS NOT NULL
+                  AND 1 - (%s <=> CAST(? AS vector)) >= ?
+                LIMIT 21
+            ) sub
             """.formatted(column, column);
         Long count = jdbcTemplate.queryForObject(sql, Long.class, formatVector(vector), minScore);
         return count == null ? 0L : count;
@@ -114,8 +120,14 @@ public class ItemVectorRepository {
         item.setImageUrl(rs.getString("image_url"));
         item.setStatus(rs.getInt("status"));
 
-        item.setCreatedAt(rs.getTimestamp("created_at").toLocalDateTime());
-        item.setUpdatedAt(rs.getTimestamp("updated_at").toLocalDateTime());
+        Timestamp createdAt = rs.getTimestamp("created_at");
+        if (createdAt != null) {
+            item.setCreatedAt(createdAt.toLocalDateTime());
+        }
+        Timestamp updatedAt = rs.getTimestamp("updated_at");
+        if (updatedAt != null) {
+            item.setUpdatedAt(updatedAt.toLocalDateTime());
+        }
         return item;
     }
 

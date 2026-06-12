@@ -52,7 +52,7 @@ public class AdminController {
         return Result.success(adminService.claimsPage(page, size));
     }
 
-    @PutMapping("/claim/audit/{id}")
+    @PutMapping("/claim/audit/{id:\\d+}")
     @Operation(summary = "审核认领", description = "status：1 通过，2 拒绝")
     public Result<Void> audit(
             @Parameter(description = "认领记录 ID") @PathVariable("id") long id,
@@ -61,7 +61,7 @@ public class AdminController {
         return Result.success();
     }
 
-    @PutMapping("/user/ban/{userId}")
+    @PutMapping("/user/ban/{userId:\\d+}")
     @Operation(summary = "封禁用户")
     public Result<Void> ban(@Parameter(description = "用户 ID") @PathVariable("userId") long userId) {
         adminService.banUser(userId);

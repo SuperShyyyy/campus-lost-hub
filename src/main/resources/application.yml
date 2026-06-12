@@ -7,10 +7,6 @@ spring:
     deserialization:
       fail-on-unknown-properties: true
   datasource:
-   # url: jdbc:mysql://localhost:3306/lost_hub?serverTimezone=GMT%2B8&useUnicode=true&characterEncoding=utf-8&zeroDateTimeBehavior=convertToNull&useSSL=false&allowPublicKeyRetrieval=true
-   # username: ${lost-hub.db.mysql.username}
-   # password: ${lost-hub.db.mysql.password}
-   # driver-class-name: com.mysql.cj.jdbc.Driver
     url: jdbc:postgresql://192.168.150.129:5432/lost_hub?currentSchema=public
     username: ${lost-hub.db.postgresql.username}
     password: ${lost-hub.db.postgresql.password}
@@ -18,7 +14,6 @@ spring:
     redis:
       host: 192.168.150.129
       port: 6379
-      # database: ${REDIS_DATABASE:0}
       password: ${lost-hub.redis.password}
       timeout: 5s
 
@@ -33,8 +28,11 @@ server:
 lost-hub:
   clip:
     enabled: true
-    base-url: http://localhost:8000
+    base-url: http://localhost:8001
     dimension: 512
+  websocket:
+    allowed-origins: "*"
+  trust-proxy-headers: false
 
 springdoc:
   api-docs:
@@ -43,24 +41,21 @@ springdoc:
     path: /api/doc.html
     tags-sorter: alpha
     operations-sorter: alpha
-    try-it-out-enabled: true
+    try-it-out-enabled: false
+
 
 logging:
   level:
-    com.zaxxer.hikari: DEBUG
-    org.springframework.jdbc: DEBUG
-    dev.langchain4j: debug #日志级别
-
+    org.springframework.data.redis: DEBUG
+    io.lettuce.core: DEBUG
 mybatis-plus:
   configuration:
-    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
     map-underscore-to-camel-case: true
   global-config:
     db-config:
       id-type: auto
   mapper-locations: classpath:/mapper/**/*.xml
-  type-aliases-package: com.hub.campuslosthub.domain.po
-
+  type-aliases-package: com.hub.domain.po
 
 langchain4j:
   open-ai:
@@ -68,18 +63,18 @@ langchain4j:
       base-url: https://dashscope.aliyuncs.com/compatible-mode/v1
       api-key: ${lost-hub.ai.api-key}
       model-name: qwen-plus
-      log-requests: true #请求消息日志
-      log-responses: true #响应消息日志
-    streaming-chat-model: #流式模型配置
+      log-requests: false
+      log-responses: false
+    streaming-chat-model:
       base-url: https://dashscope.aliyuncs.com/compatible-mode/v1
       api-key: ${lost-hub.ai.api-key}
       model-name: qwen-plus
-      log-requests: true
-      log-responses: true
+      log-requests: false
+      log-responses: false
     embedding-model:
       base-url: https://dashscope.aliyuncs.com/compatible-mode/v1
       api-key: ${lost-hub.ai.api-key}
       model-name: text-embedding-v4
       dimensions: 1024
-      log-requests: true
-      log-responses: true
+      log-requests: false
+      log-responses: false

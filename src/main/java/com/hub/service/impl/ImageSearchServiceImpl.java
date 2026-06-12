@@ -24,6 +24,8 @@ public class ImageSearchServiceImpl implements ImageSearchService {
     private static final int DEFAULT_PAGE = 1;
     private static final int DEFAULT_SIZE = 10;
     private static final double DEFAULT_MIN_SCORE = 0.5D;
+    /** 图片搜索上传大小上限 10MB，超过此值提示用户压缩后重试 */
+    private static final long MAX_IMAGE_BYTES = 10 * 1024 * 1024;
 
     private final ClipProperties clipProperties;
     private final ImageEmbeddingService imageEmbeddingService;
@@ -40,6 +42,10 @@ public class ImageSearchServiceImpl implements ImageSearchService {
         String contentType = file.getContentType();
         if (contentType == null || !contentType.toLowerCase().startsWith("image/")) {
             throw new IllegalArgumentException("仅支持上传图片文件");
+        }
+        long fileSize = file.getSize();
+        if (fileSize > MAX_IMAGE_BYTES) {
+            throw new IllegalArgumentException("图片过大（最大10MB），请压缩后重试");
         }
 
         double threshold = minScore == null ? DEFAULT_MIN_SCORE : minScore;

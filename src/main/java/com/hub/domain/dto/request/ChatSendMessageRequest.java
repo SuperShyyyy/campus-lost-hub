@@ -13,9 +13,6 @@ public class ChatSendMessageRequest {
     @NotNull(message = "itemId不能为空")
     private Long itemId;
 
-    @NotNull(message = "receiverUserId不能为空")
-    private Long receiverUserId;
-
     @NotBlank(message = "消息内容不能为空")
     @Size(max = 1000, message = "消息内容最多1000字符")
     private String content;

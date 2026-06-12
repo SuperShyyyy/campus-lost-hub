@@ -43,4 +43,57 @@ public final class RedisKeyConstants {
     public static String claimDetail(Long id) {
         return PREFIX + "claim:detail:" + id;
     }
+
+    // ========== 封禁标记 ==========
+
+    /**
+     * 用户封禁标记（存在即表示已封禁，TTL 与 JWT 过期时间一致）
+     */
+    public static String banUser(Long userId) {
+        return PREFIX + "ban:user:" + userId;
+    }
+
+    // ========== 请求限流 ==========
+
+    /**
+     * 文本搜索冷却标记，TTL 15s
+     */
+    public static String textEmbeddingRateLimit(Long userId) {
+        return PREFIX + "rate:textEmbedding:" + userId;
+    }
+
+    /**
+     * 图片搜索冷却标记，TTL 30s
+     */
+    public static String imageEmbeddingRateLimit(Long userId) {
+        return PREFIX + "rate:imageEmbedding:" + userId;
+    }
+
+    /**
+     * 物品发布冷却标记，TTL 10s
+     */
+    public static String itemCreateRateLimit(Long userId) {
+        return PREFIX + "rate:itemCreate:" + userId;
+    }
+
+    /**
+     * 聊天消息发送冷却标记，TTL 3s
+     */
+    public static String chatSendRateLimit(Long userId) {
+        return PREFIX + "rate:chatSend:" + userId;
+    }
+
+    /**
+     * 用户注册冷却标记，TTL 60s
+     */
+    public static String userRegisterRateLimit(String ip) {
+        return PREFIX + "rate:userRegister:" + ip;
+    }
+
+    /**
+     * 认领提交冷却标记，TTL 10s
+     */
+    public static String claimCreateRateLimit(Long userId) {
+        return PREFIX + "rate:claimCreate:" + userId;
+    }
 }

@@ -23,6 +23,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Duration;
+
 @Service
 @RequiredArgsConstructor
 public class ClaimServiceImpl implements ClaimService {
@@ -121,7 +123,7 @@ public class ClaimServiceImpl implements ClaimService {
         return v;
     }
 
-    private void putCache(String key, Object value, java.time.Duration ttl) {
+    private void putCache(String key, Object value, Duration ttl) {
         try {
             cache.put(key, value, ttl);
         } catch (JsonProcessingException e) {
