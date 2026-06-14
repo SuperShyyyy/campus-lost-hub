@@ -111,7 +111,7 @@ public class ItemController {
     }
 
     @PostMapping("/search/image")
-    @Operation(summary = "物品图片向量搜索", description = "需登录；上传图片，按 image_embedding(512维/CLIP) 余弦相似度分页；需启用 lost-hub.clip.enabled")
+    @Operation(summary = "物品图片向量搜索", description = "需登录；上传图片，按 image_embedding(512维/qwen2.5-vl-embedding) 余弦相似度分页；需启用 lost-hub.image-embedding.enabled")
     public Result<PageResult<ItemSearchVo>> searchByImage(
             @RequestParam("file") MultipartFile file,
             @Parameter(description = "页码，最多支持前2页") @RequestParam(defaultValue = "1") @Min(1) @Max(2) int page,

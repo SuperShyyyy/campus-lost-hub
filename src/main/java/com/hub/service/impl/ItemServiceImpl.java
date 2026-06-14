@@ -10,7 +10,7 @@ import com.hub.common.constant.CacheTtlConstants;
 import com.hub.common.constant.ItemStatusConstants;
 import com.hub.common.constant.RedisKeyConstants;
 import com.hub.config.AliyunConfig;
-import com.hub.config.ClipProperties;
+import com.hub.config.ImageEmbeddingProperties;
 import com.hub.domain.dto.request.ItemCreateRequest;
 import com.hub.domain.po.Item;
 import com.hub.domain.repository.ItemVectorRepository;
@@ -42,7 +42,7 @@ public class ItemServiceImpl implements ItemService {
     private final ImageEmbeddingService imageEmbeddingService;
     private final ItemVectorRepository itemVectorRepository;
     private final AliyunConfig aliyunConfig;
-    private final ClipProperties clipProperties;
+    private final ImageEmbeddingProperties imageEmbeddingProperties;
 
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -113,8 +113,8 @@ public class ItemServiceImpl implements ItemService {
         if (fileSize > 10 * 1024 * 1024) {
             throw new IllegalArgumentException("图片过大（最大10MB），请压缩后重试");
         }
-        if (!clipProperties.isEnabled()) {
-            throw new BizException(503, "图片向量服务未启用，请配置 lost-hub.clip.enabled=true 并启动 CLIP 服务");
+        if (!imageEmbeddingProperties.isEnabled()) {
+            throw new BizException(503, "图片向量服务未启用，请配置 lost-hub.image-embedding.enabled=true");
         }
 
         byte[] imageBytes;
@@ -124,12 +124,21 @@ public class ItemServiceImpl implements ItemService {
             throw new IllegalStateException("读取上传图片失败", e);
         }
 
-        // 先生成向量再上传 OSS：避免向量生成失败时 OSS 已写入产生孤儿文件。
-        // 向量生成只需 URL，这里先将 bytes 作为临时文件上传→算向量→删除临时文件，
-        // 拿到向量后再做正式的 OSS 上传 + DB 写入。
-        float[] imageEmbedding = imageEmbeddingService.embedImage(imageBytes, contentType);
-
+        // 先上传 OSS 获得永久 URL，再用永久 URL 调用多模态 embedding。
+        // 阿里云 DashScope qwen2.5-vl-embedding 直接通过 URL 算向量，
+        // 无需先做临时 OSS 上传再删除，减少一次 OSS 往返。
         String imageUrl = aliyunConfig.uploadItemImage(imageBytes, file.getOriginalFilename());
+        float[] imageEmbedding;
+        try {
+            imageEmbedding = imageEmbeddingService.embedImageUrl(imageUrl);
+        } catch (Exception e) {
+            // embedding 失败时清理已上传的 OSS 文件，避免孤儿文件
+            try {
+                aliyunConfig.deleteByFileUrl(imageUrl);
+            } catch (Exception ignored) {
+            }
+            throw e;
+        }
 
         Item update = new Item();
         update.setId(itemId);

@@ -1,7 +1,7 @@
 package com.hub.service.impl;
 
 import com.hub.common.PageResult;
-import com.hub.config.ClipProperties;
+import com.hub.config.ImageEmbeddingProperties;
 import com.hub.domain.po.Item;
 import com.hub.domain.repository.ItemSearchHit;
 import com.hub.domain.repository.ItemVectorRepository;
@@ -27,14 +27,14 @@ public class ImageSearchServiceImpl implements ImageSearchService {
     /** 图片搜索上传大小上限 10MB，超过此值提示用户压缩后重试 */
     private static final long MAX_IMAGE_BYTES = 10 * 1024 * 1024;
 
-    private final ClipProperties clipProperties;
+    private final ImageEmbeddingProperties imageEmbeddingProperties;
     private final ImageEmbeddingService imageEmbeddingService;
     private final ItemVectorRepository repository;
 
     @Override
     public PageResult<ItemSearchVo> search(MultipartFile file, int page, int size, Double minScore) {
-        if (!clipProperties.isEnabled()) {
-            throw new BizException(501, "图搜功能未启用（lost-hub.clip.enabled=false）");
+        if (!imageEmbeddingProperties.isEnabled()) {
+            throw new BizException(501, "图搜功能未启用（lost-hub.image-embedding.enabled=false）");
         }
         if (file == null || file.isEmpty()) {
             throw new IllegalArgumentException("图片不能为空");
