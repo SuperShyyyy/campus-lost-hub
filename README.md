@@ -13,7 +13,7 @@
 | 缓存 | Redis |
 | 认证 | JWT（tokenVersion + sessionId + 封禁检查） |
 | 存储 | 阿里云 OSS |
-| AI | LangChain4j + DeepSeek V4 / Qwen 3.7（阿里云 MAAS 北京节点） |
+| AI | LangChain4j +  Qwen 3.7 |
 | 向量检索 | pgvector |
 | 图片嵌入 | DashScope qwen2.5-vl-embedding (512维) |
 | 接口文档 | SpringDoc OpenAPI (Swagger) |
@@ -79,7 +79,6 @@ src/main/java/com/hub/
 | AI 问答 | `/api/ask` | SSE 流式对话、记忆管理 |
 | 聊天 | `/api/chat` | 会话列表、消息、已读 |
 
-详细接口文档见 [api_doc.md](文档/api_doc.md)
 
 ## Redis 键设计
 
