@@ -71,6 +71,13 @@ public class AliyunConfig {
         return uploadImage(content, originalFileName, dir);
     }
 
+    /**
+     * 上传用户头像到 avatar/ 目录。
+     */
+    public String uploadUserAvatar(byte[] content, String originalFileName) {
+        return uploadImage(content, originalFileName, "avatar");
+    }
+
     public void deleteByFileUrl(String fileUrl) {
         String objectName = extractObjectName(fileUrl);
         if (objectName == null) {

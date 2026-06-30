@@ -13,15 +13,18 @@ public class AiConfig {
     @Autowired
     private ChatMemoryStore redisChatMemoryStore;
 
+    @Autowired
+    private AiMemoryProperties aiMemoryProperties;
+
     @Bean
-    public ChatMemoryProvider chatMemoryProvider(){
+    public ChatMemoryProvider chatMemoryProvider() {
         ChatMemoryProvider chatMemoryProvider = new ChatMemoryProvider() {
             @Override
             public ChatMemory get(Object memoryId) {
                 return MessageWindowChatMemory.builder()
                         .id(memoryId)
-                        .maxMessages(20)
-                        .chatMemoryStore(redisChatMemoryStore)//配置ChatMemoryStore
+                        .maxMessages(aiMemoryProperties.getMaxMessages())
+                        .chatMemoryStore(redisChatMemoryStore)
                         .build();
             }
         };

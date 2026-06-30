@@ -34,35 +34,50 @@ public class JwtTokenProviderImpl implements JwtTokenProvider {
     }
 
     @Override
-    public String createUserToken(long userId) {
-        return buildToken(userId, userKey, JwtClaimConstants.TOKEN_TYPE_USER);
-    }
-
-    @Override
-    public String createAdminToken(long adminId) {
-        return buildToken(adminId, adminKey, JwtClaimConstants.TOKEN_TYPE_ADMIN);
-    }
-
-    private String buildToken(long subjectId, SecretKey key, String typ) {
+    public String createUserToken(long userId, String sessionId, long tokenVersion) {
         long now = System.currentTimeMillis();
         long expMs = now + jwtProperties.getExpireHours() * 3600_000L;
         return Jwts.builder()
-                .subject(String.valueOf(subjectId))
-                .claim(JwtClaimConstants.TOKEN_TYPE, typ)
+                .subject(String.valueOf(userId))
+                .claim(JwtClaimConstants.TOKEN_TYPE, JwtClaimConstants.TOKEN_TYPE_USER)
+                .claim(JwtClaimConstants.SESSION_ID, sessionId)
+                .claim(JwtClaimConstants.TOKEN_VERSION, tokenVersion)
                 .issuedAt(new Date(now))
                 .expiration(new Date(expMs))
-                .signWith(key)
+                .signWith(userKey)
                 .compact();
     }
 
     @Override
-    public long parseUserId(String bearerToken) {
-        return parseSubject(bearerToken, userKey, JwtClaimConstants.TOKEN_TYPE_USER);
+    public String createAdminToken(long adminId) {
+        long now = System.currentTimeMillis();
+        long expMs = now + jwtProperties.getExpireHours() * 3600_000L;
+        return Jwts.builder()
+                .subject(String.valueOf(adminId))
+                .claim(JwtClaimConstants.TOKEN_TYPE, JwtClaimConstants.TOKEN_TYPE_ADMIN)
+                .issuedAt(new Date(now))
+                .expiration(new Date(expMs))
+                .signWith(adminKey)
+                .compact();
+    }
+
+    @Override
+    public TokenInfo parseUserToken(String bearerToken) {
+        Claims claims = parseJwt(bearerToken, userKey, JwtClaimConstants.TOKEN_TYPE_USER);
+        long userId = Long.parseLong(claims.getSubject());
+        String sessionId = claims.get(JwtClaimConstants.SESSION_ID, String.class);
+        if (sessionId == null || sessionId.isBlank()) {
+            throw new UnauthorizedException("令牌缺少会话标识");
+        }
+        Long ver = claims.get(JwtClaimConstants.TOKEN_VERSION, Long.class);
+        long tokenVersion = ver != null ? ver : 0L;
+        return new TokenInfo(userId, sessionId, tokenVersion);
     }
 
     @Override
     public long parseAdminId(String bearerToken) {
-        return parseSubject(bearerToken, adminKey, JwtClaimConstants.TOKEN_TYPE_ADMIN);
+        Claims claims = parseJwt(bearerToken, adminKey, JwtClaimConstants.TOKEN_TYPE_ADMIN);
+        return Long.parseLong(claims.getSubject());
     }
 
     @Override
@@ -70,7 +85,10 @@ public class JwtTokenProviderImpl implements JwtTokenProvider {
         return Duration.ofHours(jwtProperties.getExpireHours());
     }
 
-    private long parseSubject(String bearerToken, SecretKey key, String expectedTyp) {
+    /**
+     * 解析并校验 JWT 签名、类型和过期时间，返回 Claims。
+     */
+    private Claims parseJwt(String bearerToken, SecretKey key, String expectedTyp) {
         if (bearerToken == null || bearerToken.isBlank()) {
             throw new UnauthorizedException("缺少访问令牌");
         }
@@ -85,7 +103,7 @@ public class JwtTokenProviderImpl implements JwtTokenProvider {
             if (!expectedTyp.equals(typ)) {
                 throw new UnauthorizedException("令牌类型无效");
             }
-            return Long.parseLong(claims.getSubject());
+            return claims;
         } catch (ExpiredJwtException e) {
             throw new UnauthorizedException("登录已过期，请重新登录");
         } catch (MalformedJwtException | SignatureException | IllegalArgumentException e) {

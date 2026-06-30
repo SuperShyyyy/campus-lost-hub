@@ -1,34 +1,28 @@
+# =============================================================
+# 公共配置 —— 所有环境共享
+# 激活指定 profile 后，Spring Boot 自动加载 application-{profile}.yml
+# =============================================================
 spring:
   application:
     name: lost-hub
-  config:
-    import: optional:application-secret.yml
+  profiles:
+    active: dev
   jackson:
     deserialization:
       fail-on-unknown-properties: true
-  datasource:
-    url: jdbc:postgresql://192.168.150.129:5432/lost_hub?currentSchema=public
-    username: ${lost-hub.db.postgresql.username}
-    password: ${lost-hub.db.postgresql.password}
-  data:
-    redis:
-      host: 192.168.150.129
-      port: 6379
-      password: ${lost-hub.redis.password}
-      timeout: 5s
   servlet:
     multipart:
       max-file-size: 5MB
       max-request-size: 5MB
-jwt:
-  user-secret: ${lost-hub.jwt.user-secret}
-  admin-secret: ${lost-hub.jwt.admin-secret}
-  expire-hours: ${lost-hub.jwt.expire-hours}
 
 server:
   port: 8080
 
 lost-hub:
+  ai:
+    memory:
+      ttl: 30m
+      max-messages: 10
   image-embedding:
     enabled: true
     dimension: 512
@@ -45,11 +39,6 @@ springdoc:
     operations-sorter: alpha
     try-it-out-enabled: false
 
-
-logging:
-  level:
-    org.springframework.data.redis: DEBUG
-    io.lettuce.core: DEBUG
 mybatis-plus:
   configuration:
     map-underscore-to-camel-case: true

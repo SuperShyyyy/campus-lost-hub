@@ -33,3 +33,5 @@ build/
 
 # Env
 application-secret.yml
+application-dev-secret.yml
+application-prod-secret.yml

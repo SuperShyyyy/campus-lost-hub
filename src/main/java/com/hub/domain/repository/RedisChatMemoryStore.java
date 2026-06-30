@@ -1,5 +1,6 @@
 package com.hub.domain.repository;
 
+import com.hub.config.AiMemoryProperties;
 import dev.langchain4j.data.message.ChatMessage;
 import dev.langchain4j.data.message.ChatMessageDeserializer;
 import dev.langchain4j.data.message.ChatMessageSerializer;
@@ -15,9 +16,11 @@ import java.util.List;
 public class RedisChatMemoryStore implements ChatMemoryStore {
 
     private final StringRedisTemplate stringRedisTemplate;
+    private final AiMemoryProperties aiMemoryProperties;
 
-    public RedisChatMemoryStore(StringRedisTemplate stringRedisTemplate) {
+    public RedisChatMemoryStore(StringRedisTemplate stringRedisTemplate, AiMemoryProperties aiMemoryProperties) {
         this.stringRedisTemplate = stringRedisTemplate;
+        this.aiMemoryProperties = aiMemoryProperties;
     }
 
     @Override
@@ -35,7 +38,8 @@ public class RedisChatMemoryStore implements ChatMemoryStore {
     @Override
     public void updateMessages(Object memoryId, List<ChatMessage> list) {
         String json = ChatMessageSerializer.messagesToJson(list);
-        stringRedisTemplate.opsForValue().set(memoryId.toString(), json, Duration.ofDays(10));
+        Duration ttl = aiMemoryProperties.getTtl();
+        stringRedisTemplate.opsForValue().set(memoryId.toString(), json, ttl);
     }
 
     @Override

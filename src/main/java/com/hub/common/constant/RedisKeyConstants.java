@@ -44,29 +44,46 @@ public final class RedisKeyConstants {
         return PREFIX + "claim:detail:" + id;
     }
 
-    // ========== 封禁标记 ==========
+    // ========== 用户鉴权 ==========
 
     /**
-     * 用户封禁标记（存在即表示已封禁，TTL 与 JWT 过期时间一致）
+     * 用户封禁标记（值 "1"，TTL 与 JWT 过期时间一致）。
+     * 管理员封禁用户时写入，Filter 每次请求校验。
      */
-    public static String banUser(Long userId) {
-        return PREFIX + "ban:user:" + userId;
+    public static String userBan(Long userId) {
+        return PREFIX + "user:ban:" + userId;
+    }
+
+    /**
+     * Token 版本号（INCR 递增，持久化不设 TTL）。
+     * 登出/改密时 +1，校验时 JWT 内 ver 必须与此值一致。
+     */
+    public static String userTokenVersion(Long userId) {
+        return PREFIX + "user:tokenVersion:" + userId;
+    }
+
+    /**
+     * 当前活跃会话 ID（单设备登录控制）。
+     * 登录时写入新 sessionId，踢掉旧设备；TTL 与 JWT 过期时间一致。
+     */
+    public static String userSession(Long userId) {
+        return PREFIX + "user:session:" + userId;
     }
 
     // ========== 请求限流 ==========
 
     /**
-     * 文本搜索冷却标记，TTL 15s
+     * 文本搜索滑动窗口计数（ZSET），60s 内最多 10 次
      */
-    public static String textEmbeddingRateLimit(Long userId) {
-        return PREFIX + "rate:textEmbedding:" + userId;
+    public static String textSearchRateLimit(Long userId) {
+        return PREFIX + "rate:textSearch:" + userId;
     }
 
     /**
-     * 图片搜索冷却标记，TTL 30s
+     * 图片搜索滑动窗口计数（ZSET），60s 内最多 5 次
      */
-    public static String imageEmbeddingRateLimit(Long userId) {
-        return PREFIX + "rate:imageEmbedding:" + userId;
+    public static String imageSearchRateLimit(Long userId) {
+        return PREFIX + "rate:imageSearch:" + userId;
     }
 
     /**

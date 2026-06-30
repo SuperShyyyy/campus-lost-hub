@@ -1,0 +1,26 @@
+# =============================================================
+# 开发环境配置
+# =============================================================
+spring:
+  config:
+    import: optional:application-dev-secret.yml
+  datasource:
+    url: jdbc:postgresql://192.168.150.129:5432/lost_hub?currentSchema=public
+    username: ${lost-hub.db.postgresql.username}
+    password: ${lost-hub.db.postgresql.password}
+  data:
+    redis:
+      host: 192.168.150.129
+      port: 6379
+      password: ${lost-hub.redis.password}
+      timeout: 5s
+
+jwt:
+  user-secret: ${lost-hub.jwt.user-secret}
+  admin-secret: ${lost-hub.jwt.admin-secret}
+  expire-hours: ${lost-hub.jwt.expire-hours}
+
+logging:
+  level:
+    org.springframework.data.redis: DEBUG
+    io.lettuce.core: DEBUG

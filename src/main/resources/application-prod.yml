@@ -1,0 +1,26 @@
+# =============================================================
+# 生产环境配置
+# =============================================================
+spring:
+  config:
+    import: optional:application-prod-secret.yml
+  datasource:
+    url: jdbc:postgresql://${PROD_DB_HOST:localhost}:${PROD_DB_PORT:5432}/lost_hub?currentSchema=public
+    username: ${lost-hub.db.postgresql.username}
+    password: ${lost-hub.db.postgresql.password}
+  data:
+    redis:
+      host: ${PROD_REDIS_HOST:localhost}
+      port: ${PROD_REDIS_PORT:6379}
+      password: ${lost-hub.redis.password}
+      timeout: 5s
+
+jwt:
+  user-secret: ${lost-hub.jwt.user-secret}
+  admin-secret: ${lost-hub.jwt.admin-secret}
+  expire-hours: ${lost-hub.jwt.expire-hours}
+
+logging:
+  level:
+    org.springframework.data.redis: WARN
+    io.lettuce.core: WARN
